@@ -1,0 +1,11 @@
+pub type GearLevel = f32;
+pub type EntityId = u64;
+pub type CharacterId = u64;
+pub type NpcId = u32;
+pub type SkillId = u32;
+pub type SkillEffectId = u32;
+pub type ClassId = u32;
+pub type PartyInstanceId = u32;
+pub type RaidInstanceId = u32;
+pub type StatusEffectId = u32;
+pub type StatusEffectInstanceId = u32;

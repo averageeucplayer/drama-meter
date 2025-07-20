@@ -1,0 +1,74 @@
+{
+  "19090": {
+    "name": "Ghost",
+    "icon": "AR_CardDeck_ToolTip_1.png"
+  },
+  "19091": {
+    "name": "Twisted Fate",
+    "icon": "AR_CardDeck_ToolTip_12.png"
+  },
+  "19092": {
+    "name": "Moon",
+    "icon": "AR_CardDeck_ToolTip_2.png"
+  },
+  "19093": {
+    "name": "Corrosion",
+    "icon": "AR_CardDeck_ToolTip_4.png"
+  },
+  "19094": {
+    "name": "Star",
+    "icon": "AR_CardDeck_ToolTip_5.png"
+  },
+  "19095": {
+    "name": "Wheel of Fortune",
+    "icon": "AR_CardDeck_ToolTip_6.png"
+  },
+  "19096": {
+    "name": "Royal",
+    "icon": "AR_CardDeck_ToolTip_7.png"
+  },
+  "19097": {
+    "name": "Three-Headed Snake",
+    "icon": "AR_CardDeck_ToolTip_8.png"
+  },
+  "19098": {
+    "name": "Judgment",
+    "icon": "AR_CardDeck_ToolTip_3.png"
+  },
+  "19099": {
+    "name": "Balance",
+    "icon": "AR_CardDeck_ToolTip_10.png"
+  },
+  "19280": {
+    "name": "Mayhem",
+    "icon": "AR_CardDeck_ToolTip_11.png"
+  },
+  "19281": {
+    "name": "Cull",
+    "icon": "AR_CardDeck_ToolTip_9.png"
+  },
+  "19282": {
+    "name": "Emperor",
+    "icon": "AR_CardDeck_ToolTip_13.png"
+  },
+  "19284": {
+    "name": "Clown",
+    "icon": "AR_CardDeck_ToolTip_15.png"
+  },
+  "19285": {
+    "name": "Joy",
+    "icon": "AR_CardDeck_ToolTip_16.png"
+  },
+  "19286": {
+    "name": "Chancellor",
+    "icon": "AR_CardDeck_ToolTip_17.png"
+  },
+  "19287": {
+    "name": "Sovereign",
+    "icon": "AR_CardDeck_ToolTip_14.png"
+  },
+  "19288": {
+    "name": "Knight of the Empress",
+    "icon": "AR_CardDeck_ToolTip_18.png"
+  }
+}
