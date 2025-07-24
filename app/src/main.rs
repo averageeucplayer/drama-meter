@@ -7,6 +7,7 @@
 
 mod core;
 mod sniffer;
+mod simulator;
 mod handlers;
 mod setup;
 mod entity;

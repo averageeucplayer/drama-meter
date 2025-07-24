@@ -15,6 +15,7 @@ use tauri::{AppHandle, Emitter, EventTarget, Manager};
 use anyhow::Result;
 use tokio::task;
 
+use crate::core::stats_api::StatsApi;
 use crate::misc::data::VALID_ZONES;
 use crate::database::{Database, SaveToDb};
 use crate::entity::{player, EntityVariant};
@@ -36,6 +37,7 @@ pub fn handle(
     damage_handler: &DamageEncryptionHandler,
     local_manager: &mut LocalManager,
     region_manager: &mut RegionManager,
+    stats_api: &Arc<StatsApi>,
     database: Arc<Database>
 ) -> Result<()> {
     match op {
@@ -75,7 +77,7 @@ pub fn handle(
             if !state.saved && let Some(model) = state.get_encounter(false) {
                 let app = app.clone();
 
-                save_to_db(app.clone(), database.clone(), model);
+                save_to_db(app.clone(), stats_api.clone(), database.clone(), model);
             }
 
             state.soft_reset(false);
@@ -270,7 +272,7 @@ pub fn handle(
             if let Some(encounter) = state.get_encounter(false) {
                 state.valid_zone = false;
                 
-                save_to_db(app.clone(), database, encounter);
+                save_to_db(app.clone(), stats_api.clone(), database, encounter);
                 state.saved = true;
             }
 
@@ -509,7 +511,7 @@ pub fn handle(
                 app.emit_to(EventTarget::Any, "phase-transition", 3)?;
                 
                 if let Some(model) = state.get_encounter(false) {
-                    save_to_db(app.clone(), database, model);
+                    save_to_db(app.clone(), stats_api.clone(), database, model);
                     state.saved = true;
                 }
                 
@@ -533,7 +535,7 @@ pub fn handle(
 
                     if let Some(model) = state.get_encounter(false) {
                     
-                        save_to_db(app.clone(), database.clone(), model);
+                        save_to_db(app.clone(), stats_api.clone(), database.clone(), model);
                         state.saved = true;
                     }
                     
@@ -550,7 +552,7 @@ pub fn handle(
                     app.emit_to(EventTarget::Any, "phase-transition", 4)?;
         
                     if let Some(model) = state.get_encounter(false) {  
-                        save_to_db(app.clone(), database.clone(), model);
+                        save_to_db(app.clone(), stats_api.clone(), database.clone(), model);
                         state.saved = true;
                     }
                     

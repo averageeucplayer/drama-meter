@@ -1,6 +1,7 @@
 use anyhow::*;
 use flate2::read::GzDecoder;
 use hashbrown::HashMap;
+use r2d2_sqlite::rusqlite;
 use serde_json::json;
 use std::{fs, io::Read, path::PathBuf, str::FromStr};
 

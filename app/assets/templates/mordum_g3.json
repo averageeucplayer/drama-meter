@@ -1,0 +1,103 @@
+{
+    "boss": {
+        "id": 485800,
+        "level": 1700,
+        "hp": 1.2e10
+    },
+    "raid": {
+        "id": "<u32>",
+        "parties": [
+            {
+                "id": "<u32>",
+                "members": [
+                    {
+                        "class_id": "<dps>",
+                        "gear_score": "<1700..1720>",
+                        "hp": 3e6,
+                        "name": "Localplayer",
+                        "attack_power": 100000,
+                        "cooldown_reduction": 0.20,
+                        "crit_rate": 0.75,
+                        "crit_damage": 2.0
+                    },
+                    {
+                        "class_id": "<dps>",
+                        "gear_score": "<1700..1720>",
+                        "hp": 3e6,
+                        "name": "<nickname>",
+                        "attack_power": 100000,
+                        "cooldown_reduction": 0.20,
+                        "crit_rate": 0.75,
+                        "crit_damage": 2.0
+                    },
+                    {
+                        "class_id": "<dps>",
+                        "gear_score": "<1700..1720>",
+                        "hp": 3e6,
+                        "name": "<nickname>",
+                        "attack_power": 100000,
+                        "cooldown_reduction": 0.20,
+                        "crit_rate": 0.75,
+                        "crit_damage": 2.0
+                    },
+                    {
+                        "class_id": "<support>",
+                        "gear_score": "<1700..1720>",
+                        "hp": 3e6,
+                        "name": "<nickname>",
+                        "attack_power": 100000,
+                        "cooldown_reduction": 0.60,
+                        "crit_rate": 0.10,
+                        "crit_damage": 2.0
+                    }
+                ]
+            },
+            {
+                "id": "<u32>",
+                "members": [
+                    {
+                        "class_id": "<dps>",
+                        "gear_score": "<1700..1720>",
+                        "hp": 3e6,
+                        "name": "<nickname>",
+                        "attack_power": 100000,
+                        "cooldown_reduction": 0.20,
+                        "crit_rate": 0.75,
+                        "crit_damage": 2.0
+                    },
+                    {
+                        "class_id": "<dps>",
+                        "gear_score": "<1700..1720>",
+                        "hp": 3e6,
+                        "name": "<nickname>",
+                        "attack_power": 100000,
+                        "cooldown_reduction": 0.20,
+                        "crit_rate": 0.75,
+                        "crit_damage": 2.0
+                    },
+                    {
+                        "class_id": "<dps>",
+                        "gear_score": "<1700..1720>",
+                        "hp": 3e6,
+                        "name": "<nickname>",
+                        "attack_power": 100000,
+                        "cooldown_reduction": 0.20,
+                        "crit_rate": 0.75,
+                        "crit_damage": 2.0
+                    },
+                    {
+                        "class_id": "<support>",
+                        "gear_score": "<1700..1720>",
+                        "hp": 3e6,
+                        "name": "<nickname>",
+                        "attack_power": 100000,
+                        "cooldown_reduction": 0.60,
+                        "crit_rate": 0.10,
+                        "crit_damage": 2.0
+                    }
+                ]
+            }
+        ]
+    },
+    "local_player": "Localplayer"
+}

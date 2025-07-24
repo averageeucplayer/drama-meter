@@ -40,44 +40,25 @@ impl StatsApi {
 
     pub async fn get_character_info(
         &self,
-        version: String,
-        encounter: &Encounter,
+        version: &str,
+        region: String,
+        raid_name: String,
+        difficulty: &str,
+        cleared: bool,
+        current_boss_name: &str,
+        player_names: Vec<String>
     ) -> Option<HashMap<String, PlayerStats>> {
-        if encounter.region.is_none() {
-            warn!("region is not set");
-            return None;
-        }
-
-        let raid_name = encounter
-            .entities
-            .get(&encounter.current_boss_name)
-            .and_then(|boss| boss_to_raid_map(&encounter.current_boss_name, boss.max_hp));
-
-        let players: Vec<String> = encounter
-            .entities
-            .iter()
-            .filter_map(|(_, e)| {
-                if is_valid_player(e) {
-                    Some(e.name.clone())
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        if players.len() > 16 {
-            return None;
-        }
+     
 
         let request_body = json!({
             "clientId": self.client_id,
             "version": version.to_string(),
-            "region": encounter.region.as_ref().unwrap(),
-            "raidName": raid_name.unwrap_or_default(),
-            "boss": encounter.current_boss_name,
-            "characters": players,
-            "difficulty": encounter.difficulty,
-            "cleared": encounter.cleared,
+            "region": region,
+            "raidName": raid_name,
+            "boss": current_boss_name,
+            "characters": player_names,
+            "difficulty": difficulty,
+            "cleared": cleared,
         });
 
         match self

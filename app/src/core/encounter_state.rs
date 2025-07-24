@@ -161,7 +161,6 @@ impl EncounterState {
     }
 
     pub fn get_ongoing_encounter(&mut self, now: DateTime<Utc>) -> Option<OngoingEncounter> {
-        // last_update.elapsed() >= duration || state.resetting || state.boss_dead_update
 
         let boss_dead_update = self.boss_dead_update;
 
@@ -203,7 +202,9 @@ impl EncounterState {
                         name: player.name.clone(),
                         character_id: player.character_id,
                         class_id: player.class_id,
+                        entity_type: EntityType::Player,
                         damage_stats: DamageStats {
+                            damage_absorbed: player.encounter_stats.damage_stats.absorbed,
                             damage_dealt: player.encounter_stats.damage_stats.dealt,
                             ..Default::default()
                         },
@@ -219,6 +220,7 @@ impl EncounterState {
                     Some((boss.name.to_string(), EncounterEntity {
                         id: *key,
                         name: boss.name.to_string(),
+                        entity_type: EntityType::Boss,
                         damage_stats: DamageStats {
                             damage_dealt: boss.encounter_stats.dealt,
                             ..Default::default()
@@ -234,6 +236,7 @@ impl EncounterState {
                     Some((esther.name.clone(), EncounterEntity {
                         id: *key,
                         name: esther.name.clone(),
+                        entity_type: EntityType::Esther,
                         damage_stats: DamageStats {
                             damage_dealt: esther.damage_dealt,
                             ..Default::default()
@@ -287,12 +290,75 @@ impl EncounterState {
         }
 
         let duration = self.updated_on - self.started_on;
+    
+        let entities: Vec<EncounterEntity> = self.entities.values().filter_map(|pr | {
+            match pr.deref() {
+                EntityVariant::Player(player) => {
 
-        let entities: Vec<EncounterEntity> = self.entities.values().map(|pr | {
-            EncounterEntity {
-                ..Default::default()
+                    if player.class_id == 0 
+                        || player.encounter_stats.damage_stats.dealt == 0
+                        && !player.is_local {
+                        return None
+                    }
+
+                    Some(EncounterEntity {
+                        id: player.id,
+                        name: player.name.clone(),
+                        character_id: player.character_id,
+                        class_id: player.class_id,
+                        entity_type: EntityType::Player,
+                        damage_stats: DamageStats {
+                            ..Default::default()    
+                        },
+                        ..Default::default()
+                    })
+                },
+                EntityVariant::Boss(boss) => {
+
+                    if boss.encounter_stats.max_hp == 0 
+                        || boss.encounter_stats.dealt == 0 {
+                        return None
+                    }
+
+                    Some(EncounterEntity {
+                        id: boss.id,
+                        name: boss.name.to_string(),
+                        entity_type: EntityType::Boss,
+                        damage_stats: DamageStats {
+                            ..Default::default()    
+                        },
+                        ..Default::default()
+                    })
+                },
+                EntityVariant::Esther(esther) => {
+
+                    if esther.damage_dealt == 0 {
+                        return None
+                    }
+
+                    Some(EncounterEntity {
+                        id: esther.id,
+                        npc_id: esther.npc_id,
+                        name: esther.name.clone(),
+                        entity_type: EntityType::Esther,
+                        ..Default::default()
+                    })
+                },
+                _ => None
             }
+            
         }).collect();
+
+        let boss_max_hp = self.entities
+            .get(&self.current_boss.id)
+            .and_then(|pr| pr.as_boss())
+            .unwrap()
+            .encounter_stats.max_hp;
+
+        let duration_seconds = max(duration.num_seconds() / 1000, 1);
+        let dps = self.damage_stats.total_damage_dealt / duration_seconds;
+        let skill_cast_log = self.get_cast_log();
+        let current_boss_name = get_main_boss_name(&self.current_boss.name);
 
         let misc: EncounterMisc = EncounterMisc {
             raid_clear: if self.raid_clear { Some(true) } else { None },
@@ -323,7 +389,9 @@ impl EncounterState {
 
         let model = SaveToDb {
             boss_only_damage: self.boss_only_damage,
+            boss_max_hp,
             duration,
+            duration_seconds,
             entities,
             current_boss_name: self.current_boss.name.to_string(),
             local_player: self.local.name.clone(),
@@ -337,13 +405,13 @@ impl EncounterState {
             raid_clear: self.raid_clear,
             party_info: todo!(),
             player_info: todo!(),
-            raid_difficulty: self.raid_difficulty.as_ref().to_string(),
+            raid_difficulty: self.raid_difficulty,
             region: self.region,
             version: self.version,
             ntp_fight_start: 0,
             rdps_valid: self.rdps_valid,
             is_manual: is_manual,
-            skill_cast_log: self.get_cast_log(),
+            skill_cast_log
         };
 
         Some(model)
@@ -455,7 +523,7 @@ impl EncounterState {
         }
     }
 
-    pub fn get_cast_log(&mut self) -> HashMap<u64, HashMap<u32, BTreeMap<i64, SkillCast>>> {
+    pub fn get_cast_log(&self) -> HashMap<u64, HashMap<u32, BTreeMap<i64, SkillCast>>> {
         let mut cast_log: HashMap<u64, HashMap<u32, BTreeMap<i64, SkillCast>>> = HashMap::new();
         for ((entity_id, skill_id, timestamp), cast) in self.skills.iter() {
             cast_log
@@ -826,11 +894,11 @@ impl EncounterState {
                 current_hp,
                 ..Default::default()
             },
-            is_local: false,
+            is_local: true,
             gear_level: truncate_gear_level(max_item_level),
             game_stats: stat_pairs
                 .iter()
-                .map(|sp| (sp.stat_type, sp.value))
+                .map(|sp: &StatPair| (sp.stat_type, sp.value))
                 .collect(),
             incapacitations: vec![]
         };
@@ -1942,80 +2010,3 @@ impl EncounterState {
     }
 
 }
-
-
-
-    // pub fn save_to_db(&self, model: SaveToDb) {
-
-       
-        // encounter.current_boss_name = update_current_boss_name(&encounter.current_boss_name);
-
-        // task::spawn(async move {
-        //     let mut player_infos = None;
-            
-        //     if !raid_difficulty.is_empty() && !encounter.current_boss_name.is_empty() {
-        //         info!("fetching player info");
-        //         player_infos = stats_api.get_character_info(version, &encounter).await;
-        //     }
-
-        //     encounter.duration = encounter.last_combat_packet - encounter.started_on;
-        //     let duration_seconds = max(encounter.duration / 1000, 1);
-        //     encounter.encounter_damage_stats.dps =
-        //     encounter.encounter_damage_stats.total_damage_dealt / duration_seconds;
-
-        //      let filtered: Vec<&mut EncounterEntity> = entities.iter_mut()
-        //         .filter(|(_, e)| {
-        //             ((e.entity_type == EntityType::PLAYER && e.class_id > 0)
-        //                 || e.name == local_player
-        //                 || e.entity_type == EntityType::Esther
-        //                 || (e.entity_type == EntityType::Boss && e.max_hp > 0))
-        //                 && e.damage_stats.damage_dealt > 0
-        //         }).map(|(_, v)| v).collect();
-
-            // Self::calculate_stats(
-            //     filtered,
-            //     fight_start,
-            //     fight_end,
-            //     duration_seconds,
-            //     cast_log,
-            //     skill_cast_log,
-            //     player_info,
-            //     encounter.encounter_damage_stats,
-            //     damage_log)?;
-
-            // let mut conn = Connection::open(path).expect("failed to open database");
-            // let tx = conn.transaction().expect("failed to create transaction");
-
-            
-
-
-            // let encounter_id = insert_data(
-            //     &tx,
-            //     encounter,
-            //     damage_log,
-            //     cast_log,
-            //     boss_hp_log,
-            //     raid_clear,
-            //     party_info,
-            //     raid_difficulty,
-            //     region,
-            //     player_infos,
-            //     meter_version,
-            //     ntp_fight_start,
-            //     rdps_valid,
-            //     manual,
-            //     skill_cast_log,
-            // );
-
-            // tx.commit().expect("failed to commit transaction");
-            // info!("saved to db");
-
-            // if raid_clear {
-            //     window
-            //         .emit_to(EventTarget::Any, "clear-encounter", encounter_id)
-            //         .expect("failed to emit clear-encounter");
-            // }
-        // });
-    // }
-
-

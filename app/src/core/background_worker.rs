@@ -12,6 +12,7 @@ use crate::sniffer::PacketSniffer;
 use anyhow::Result;
 use chrono::{Duration, Utc};
 use log::{info, warn};
+use meter_core::packets::opcodes::Pkt;
 use tokio::runtime::Runtime;
 
 use std::sync::Arc;
@@ -62,7 +63,7 @@ impl BackgroundWorker {
         let mut region_manager = RegionManager::new(context.region_path.clone());
         let flags_manager = FlagsManager::new();
         let mut local_manager = LocalManager::new(context.database_path.clone())?;
-        let mut stats_api = StatsApi::new();
+        let mut stats_api = Arc::new(StatsApi::new());
 
         let rx = packet_sniffer.start(port, context.region_path.to_string_lossy().to_string())?;
 
@@ -82,8 +83,13 @@ impl BackgroundWorker {
         state.region = region_manager.get();
 
         flags_manager.setup_listeners(&app);
+        let update_interval = state.update_interval.to_std().unwrap();
 
-        while let Ok((op, data)) = rx.recv() {
+        loop {
+            let (op, data) = match rx.recv_timeout(update_interval) {
+                Ok(result) => result,
+                Err(_) => (Pkt::Void, vec![]),
+            };
 
             if flags_manager.invoked_reset() {
                 state.soft_reset(true);
@@ -97,7 +103,7 @@ impl BackgroundWorker {
                 state.party_info = state.get_party();
 
                 if let Some(model) = state.get_encounter(true) {  
-                    save_to_db(app.clone(), database.clone(), model);
+                    save_to_db(app.clone(), stats_api.clone(), database.clone(), model);
                     state.saved = true;
                     state.is_resetting = true;
                 }
@@ -119,6 +125,7 @@ impl BackgroundWorker {
                 &damage_handler,
                 &mut local_manager,
                 &mut region_manager,
+                &stats_api,
                 database.clone()) {
                 warn!("An error occurred whilst parsing {}", err);
             }

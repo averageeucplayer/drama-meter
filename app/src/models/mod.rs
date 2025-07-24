@@ -114,6 +114,46 @@ pub enum Class {
     Wildsoul = 604,
 }
 
+impl Class {
+
+    pub fn is_support(&self) -> bool {
+        matches!(self, Class::Bard | Class::Paladin | Class::Artist)
+    }
+
+    pub fn SUPPORT() -> &'static [Class] {
+        &[
+            Class::Bard,
+            Class::Paladin,
+            Class::Artist
+        ]
+    }
+
+    pub fn DPS() -> &'static [Class] {
+        &[
+            Class::Berserker,
+            Class::Breaker,
+            Class::Wardancer,
+            Class::Aeromancer,
+            Class::Wildsoul,
+            Class::Deadeye,
+            Class::Slayer,
+            Class::Soulfist,
+            Class::Artillerist,
+            Class::Striker,
+            Class::Glaivier,
+            Class::Gunlancer,
+            Class::Destroyer,
+            Class::Souleater,
+            Class::Sorceress,
+            Class::Arcanist,
+            Class::Sharpshooter,
+            Class::Scrapper,
+            Class::Shadowhunter,
+            Class::Reaper,
+        ]
+    }
+}
+
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum EntityType {
@@ -878,7 +918,7 @@ pub struct OngoingEncounter {
     pub party_info: HashMap<i32, Vec<String>>
 }
 
-#[derive(Debug, Default, Clone, Copy, AsRefStr, PartialEq, EnumString, VariantNames)]
+#[derive(Debug, Default, Clone, Copy, AsRefStr, PartialEq, EnumString, VariantNames, Eq)]
 #[repr(u8)]
 pub enum RaidDifficulty {
     #[default]

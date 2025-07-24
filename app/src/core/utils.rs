@@ -1,27 +1,242 @@
+use crate::constants::{WINDOW_MS, WINDOW_S};
+use crate::core::stats_api::{PlayerStats, StatsApi};
 use crate::database::SaveToDb;
 use crate::{constants::TIMEOUT_DELAY_MS, database::Database};
 use crate::models::*;
 use crate::misc::data::*;
 use chrono::{DateTime, Duration, Utc};
 use hashbrown::HashMap;
-use log::error;
+use log::{error, warn};
 use meter_core::packets::structures::{StatPair, StatusEffectData};
 use moka::sync::Cache;
 use tauri::{AppHandle, Emitter, EventTarget};
 use tokio::task;
+use std::collections::BTreeMap;
 use std::{cmp::{max, Ordering, Reverse}, sync::Arc};
 
-pub fn save_to_db(app_handle: AppHandle, database: Arc<Database>, encounter: SaveToDb) {
+pub async fn get_player_info(stats_api: Arc<StatsApi>, model: &SaveToDb) -> Option<HashMap<String, PlayerStats>> {
+    if model.raid_difficulty == RaidDifficulty::Unknown 
+        || model.current_boss_name.is_empty() {
+        return None
+    }
+
+    let region = match model.region.clone() {
+        Some(region) => region,
+        None => {
+            warn!("region is not set");
+            return None;
+        }
+    };
+
+    let raid_name = boss_to_raid_map(&model.current_boss_name, model.boss_max_hp).unwrap_or_default();
+
+    let player_names: Vec<String> = model.entities.iter()
+        .filter_map(|e| {
+            if is_valid_player(e) {
+                Some(e.name.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if player_names.len() > 16 {
+        return None;
+    }
+
+    let info = stats_api.get_character_info(
+        &model.version,
+        region,
+        raid_name,
+        model.raid_difficulty.as_ref(),
+        model.raid_clear,
+        &model.current_boss_name,
+        player_names).await;
+
+    info
+}
+
+pub fn save_to_db(
+    app_handle: AppHandle,
+    stats_api: Arc<StatsApi>,
+    database: Arc<Database>,
+    mut model: SaveToDb) {
     let app_handle = app_handle.clone();
     
     task::spawn(async move {
-        match database.insert_data(encounter) {
+
+        let player_info = get_player_info(stats_api, &model).await;
+
+        calculate_stats(
+            &mut model.entities,
+            model.started_on.timestamp_millis(),
+            model.updated_on.timestamp_millis(),
+            model.duration_seconds,
+            &model.cast_log,
+            &model.skill_cast_log,
+            player_info,
+            &model.encounter_damage_stats,
+            &model.damage_log);
+
+        match database.insert_data(model) {
             Ok(encounter_id) => {
                 app_handle.emit_to(EventTarget::Any, "clear-encounter", encounter_id).unwrap();
             },
             Err(err) => error!("An error occurred whilst saving to database: {}", err),
-        }
+        };
     });
+}
+
+pub fn calculate_stats(
+    entities: &mut Vec<EncounterEntity>,
+    fight_start: i64,
+    fight_end: i64,
+    duration_seconds: i64,
+    cast_log: &HashMap<u64, HashMap<u32, Vec<i32>>>,
+    skill_cast_log: &HashMap<u64, HashMap<u32, BTreeMap<i64, SkillCast>>>,
+    player_info: Option<HashMap<String, PlayerStats>>,
+    encounter_damage_stats: &EncounterDamageStats,
+    damage_log: &HashMap<u64, Vec<(i64, i64)>>
+) -> anyhow::Result<()> {
+    let fight_start_sec = fight_start / 1000;
+    let fight_end_sec = fight_end / 1000;
+
+    for entity in entities {
+        if entity.entity_type == EntityType::Player {
+            let intervals = generate_intervals(fight_start, fight_end);
+            if let Some(damage_log) = damage_log.get(&entity.id) {
+                if !intervals.is_empty() {
+                    for interval in intervals {
+                        let start = fight_start + interval - WINDOW_MS;
+                        let end = fight_start + interval + WINDOW_MS;
+
+                        let damage = sum_in_range(damage_log, start, end);
+                        entity
+                            .damage_stats
+                            .dps_rolling_10s_avg
+                            .push(damage / (WINDOW_S * 2));
+                    }
+                }
+                
+                entity.damage_stats.dps_average =
+                    calculate_average_dps(damage_log, fight_start_sec, fight_end_sec);
+            }
+
+            let spec = get_player_spec(entity, &encounter_damage_stats.buffs);
+
+            entity.spec = Some(spec.clone());
+
+            if let Some(info) = player_info
+                .as_ref()
+                .and_then(|stats| stats.get(&entity.name))
+            {
+                for gem in info.gems.iter().flatten() {
+                    for skill_id in gem_skill_id_to_skill_ids(gem.skill_id) {
+                        if let Some(skill) = entity.skills.get_mut(&skill_id) {
+                            match gem.gem_type {
+                                5 | 34 => {
+                                    // damage gem
+                                    skill.gem_damage =
+                                        Some(damage_gem_value_to_level(gem.value, gem.tier));
+                                    skill.gem_tier_dmg = Some(gem.tier);
+                                }
+                                27 | 35 => {
+                                    // cooldown gem
+                                    skill.gem_cooldown =
+                                        Some(cooldown_gem_value_to_level(gem.value, gem.tier));
+                                    skill.gem_tier = Some(gem.tier);
+                                }
+                                64 | 65 => {
+                                    // support identity gem??
+                                    skill.gem_damage =
+                                        Some(support_damage_gem_value_to_level(gem.value));
+                                    skill.gem_tier_dmg = Some(gem.tier);
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+
+                entity.ark_passive_active = Some(info.ark_passive_enabled);
+
+                let engravings = get_engravings(&info.engravings);
+                if entity.class_id == 104
+                    && engravings.as_ref().is_some_and(|engravings| {
+                        engravings
+                            .iter()
+                            .any(|e| e == "Awakening" || e == "Drops of Ether")
+                    })
+                {
+                    entity.spec = Some("Princess".to_string());
+                } else if spec == "Unknown" {
+                    // not reliable enough to be used on its own
+                    if let Some(tree) = info.ark_passive_data.as_ref() {
+                        if let Some(enlightenment) = tree.enlightenment.as_ref() {
+                            for node in enlightenment.iter() {
+                                let spec = get_spec_from_ark_passive(node);
+                                if spec != "Unknown" {
+                                    entity.spec = Some(spec);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                entity.engraving_data = engravings;
+                entity.ark_passive_data = info.ark_passive_data.clone();
+            }
+        }
+
+        entity.damage_stats.dps = entity.damage_stats.damage_dealt / duration_seconds;
+
+        for (_, skill) in entity.skills.iter_mut() {
+            skill.dps = skill.total_damage / duration_seconds;
+        }
+
+        for (_, cast_log) in cast_log.iter().filter(|&(s, _)| *s == entity.id) {
+            for (skill, log) in cast_log {
+                entity.skills.entry(*skill).and_modify(|e| {
+                    e.cast_log.clone_from(log);
+                });
+            }
+        }
+
+        for (_, skill_cast_log) in skill_cast_log.iter().filter(|&(s, _)| *s == entity.id) {
+            for (skill, log) in skill_cast_log {
+                entity.skills.entry(*skill).and_modify(|e| {
+                    let average_cast = e.total_damage as f64 / e.casts as f64;
+                    let filter = average_cast * 0.05;
+                    let mut adj_hits = 0;
+                    let mut adj_crits = 0;
+                    for cast in log.values() {
+                        for hit in cast.hits.iter() {
+                            if hit.damage as f64 > filter {
+                                adj_hits += 1;
+                                if hit.crit {
+                                    adj_crits += 1;
+                                }
+                            }
+                        }
+                    }
+
+                    if adj_hits > 0 {
+                        e.adjusted_crit = Some(adj_crits as f64 / adj_hits as f64);
+                    }
+
+                    e.max_damage_cast = log
+                        .values()
+                        .map(|cast| cast.hits.iter().map(|hit| hit.damage).sum::<i64>())
+                        .max()
+                        .unwrap_or_default();
+                    e.skill_cast_log = log.values().cloned().collect();
+                });
+            }
+        }
+    }
+
+    Ok(())
 }
 
 pub fn is_support_class_id(class_id: u32) -> bool {

@@ -1,5 +1,6 @@
 use anyhow::*;
 use hashbrown::HashMap;
+use r2d2_sqlite::SqliteConnectionManager;
 use serde_json::json;
 use std::{cmp::Reverse, collections::BTreeMap, fs::{self, File}, hash::Hash, io::Read, path::PathBuf};
 use log::*;
@@ -8,22 +9,31 @@ use strfmt::strfmt;
 
 use crate::{constants::*, database::{models::*, queries::*, utils::*}, core::{stats_api::PlayerStats, utils::*}, models::*, misc::utils::compress_json};
 
-pub struct Database(PathBuf);
+pub struct Database {
+    path: PathBuf,
+    pool: r2d2::Pool<SqliteConnectionManager>,
+    is_new: bool
+}
 
 impl Database {
     pub fn new(path: PathBuf) -> Self {
-        Self(path)
+
+        let is_new = !path.exists();
+
+        let manager = SqliteConnectionManager::file(&path);
+        let pool: r2d2::Pool<SqliteConnectionManager> = r2d2::Pool::new(manager).unwrap();
+
+        Self {
+            path,
+            pool,
+            is_new
+        }
     }
 
     pub fn setup(&self, migration_path: PathBuf) -> Result<()> {
         
-        if self.0.exists() {
-            let mut connection = Connection::open(&self.0)?;
-            let mut statement = connection.prepare("SELECT 1 FROM sqlite_master WHERE type=? AND name=?")?;
-            let table_exists = statement.exists(["table", "encounter"])?;
-        }
-        else {
-            let mut connection = Connection::open(&self.0)?;
+        if self.is_new {
+            let mut connection = self.pool.get()?;
             
             let mut sql_files: Vec<_> = fs::read_dir(&migration_path)?
                 .filter_map(|entry| entry.ok())
@@ -42,12 +52,17 @@ impl Database {
                 connection.execute_batch(&sql)?;
             }
         }
+        else {
+            let mut connection = self.pool.get()?;
+            let mut statement = connection.prepare("SELECT 1 FROM sqlite_master WHERE type=? AND name=?")?;
+            let table_exists = statement.exists(["table", "encounter"])?;
+        }
 
         Ok(())
     }
 
     pub async fn delete_encounters(&self, ids: Vec<i32>) -> Result<()> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
         
         connection.execute("PRAGMA foreign_keys = ON;", params![])?;
 
@@ -65,7 +80,7 @@ impl Database {
     }
 
     pub async fn delete_all_encounters(&self, keep_favorites: bool) -> Result<()> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
 
         if keep_favorites {
             connection.execute(DELETE_FROM_ENCOUNTERS_IDS, [])?;
@@ -78,7 +93,7 @@ impl Database {
     }
 
     pub async fn get_sync_candidates(&self, force_resync: bool) -> Result<Vec<i32>> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
 
         let query = if force_resync { "= '0'" } else { "IS NULL" };
         let mut args = std::collections::HashMap::new();
@@ -98,7 +113,7 @@ impl Database {
     }
 
     pub async fn toggle_encounter_favorite(&self, id: i32) -> Result<()> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
 
         let mut statement = connection.prepare_cached(UPDATE_ENCOUNTER_FAVOURITE)?;
 
@@ -107,8 +122,22 @@ impl Database {
         Ok(())
     }
 
+    pub async fn insert_migration(&self, id: String) -> Result<()> {
+        let connection = self.pool.get()?;
+
+        connection.execute("PRAGMA foreign_keys = ON;", params![])?;
+        
+        let mut statement = connection.prepare_cached(DELETE_FROM_ENCOUNTERS_ID)?;
+
+        info!("deleting encounter: {}", id);
+
+        statement.execute(params![id])?;
+
+        Ok(())
+    }
+
     pub async fn delete_encounter(&self, id: String) -> Result<()> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
 
         connection.execute("PRAGMA foreign_keys = ON;", params![])?;
         
@@ -122,7 +151,7 @@ impl Database {
     }
 
     pub async fn load_encounter(&self, id: String) -> Result<Encounter> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
 
         let mut statement = connection.prepare_cached(SELECT_ENCOUNTER_JOIN_PREVIEW_BY_ID)?;
 
@@ -150,7 +179,7 @@ impl Database {
     }
 
     pub async fn get_last_encounter(&self) -> Result<Option<i32>> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
 
         let mut statement = connection
             .prepare_cached(SELECT_LATEST_ENCOUNTER_ID)?;
@@ -165,7 +194,7 @@ impl Database {
         page_size: i32,
         search: String,
         filter: SearchFilter) -> Result<(Vec<EncounterPreview>, i32)> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
         let mut sql_params = vec![];
 
         let join_clause = if search.len() > 2 {
@@ -262,7 +291,7 @@ impl Database {
     }
 
     pub async fn optimize(&self) -> Result<()> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
 
         connection.execute_batch(INSERT_FTS5)?;
         info!("optimized database");
@@ -271,7 +300,7 @@ impl Database {
     }
 
     pub async fn get_db_stats(&self, min_duration: i64) -> Result<(i32, i32)> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
 
         let result: (i32, i32) = connection
             .query_row(SELECT_STATS, [], |row| {
@@ -284,7 +313,7 @@ impl Database {
 
     pub fn get_metadata(&self) -> Result<String> {
 
-        let metadata = fs::metadata(&self.0)?;
+        let metadata = fs::metadata(&self.path)?;
 
         let size_in_bytes = metadata.len();
         let size_in_kb = size_in_bytes as f64 / 1024.0;
@@ -303,7 +332,7 @@ impl Database {
     }
 
     pub async fn get_encounter_count(&self) -> Result<i32> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
 
         let mut statement = connection.prepare_cached(SELECT_ENCOUNTER_PREVIEW_COUNT)?;
 
@@ -313,7 +342,7 @@ impl Database {
     }
 
     pub async fn delete_all_uncleared_encounters(&self, keep_favorites: bool) -> Result<()> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
 
         if keep_favorites {
             connection.execute(DELETE_FROM_ENCOUNTERS_UNCLEARED_KEEP_FAVOURITE, [])?;
@@ -331,7 +360,7 @@ impl Database {
         min_duration: i64,
         keep_favorites: bool,
     ) -> Result<()> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
 
         if keep_favorites {
             connection.execute(DELETE_FROM_ENCOUNTERS_BELOW_DURATION_KEEP_FAVOURITE, params![min_duration * 1000])?;
@@ -345,7 +374,7 @@ impl Database {
     }
 
     pub async fn insert_sync_log(&self, encounter: i32, upstream: String, failed: bool) -> Result<()> {
-        let connection = Connection::open(&self.0)?;
+        let connection = self.pool.get()?;
 
         let sql_params = params![encounter, upstream, failed];
         connection.execute(INSERT_SYNC_LOG, sql_params)?;
@@ -375,7 +404,7 @@ impl Database {
             ..
         } = model;
 
-        let mut connection = Connection::open(&self.0)?;
+        let mut connection = self.pool.get()?;
         let tx = connection.transaction()?;
         
         let duration_seconds = (updated_on - started_on).num_seconds();
@@ -433,7 +462,7 @@ impl Database {
             current_boss_name: current_boss_name,
             duration: duration_seconds,
             preview_players,
-            raid_difficulty,
+            raid_difficulty: raid_difficulty.as_ref().to_string(),
             local_player: local_player,
             local_player_dps,
             raid_clear,
@@ -525,157 +554,6 @@ impl Database {
         ];
 
         statement.execute(sql_params)?;
-
-        Ok(())
-    }
-
-    pub fn calculate_stats(
-        entities: Vec<&mut EncounterEntity>,
-        fight_start: i64,
-        fight_end: i64,
-        duration_seconds: i64,
-        cast_log: HashMap<String, HashMap<u32, Vec<i32>>>,
-        skill_cast_log: HashMap<u64, HashMap<u32, BTreeMap<i64, SkillCast>>>,
-        player_info: Option<HashMap<String, PlayerStats>>,
-        encounter_damage_stats: EncounterDamageStats,
-        damage_log: HashMap<String, Vec<(i64, i64)>>) -> Result<()> {
-        let fight_start_sec = fight_start / 1000;
-        let fight_end_sec = fight_end / 1000;
-
-         for entity in entities {
-            if entity.entity_type == EntityType::Player {
-                let intervals = generate_intervals(fight_start, fight_end);
-                if let Some(damage_log) = damage_log.get(&entity.name) {
-                    if !intervals.is_empty() {
-                        for interval in intervals {
-                            let start = fight_start + interval - WINDOW_MS;
-                            let end = fight_start + interval + WINDOW_MS;
-
-                            let damage = sum_in_range(damage_log, start, end);
-                            entity
-                                .damage_stats
-                                .dps_rolling_10s_avg
-                                .push(damage / (WINDOW_S * 2));
-                        }
-                    }
-                    
-                    entity.damage_stats.dps_average =
-                        calculate_average_dps(damage_log, fight_start_sec, fight_end_sec);
-                }
-
-                let spec = get_player_spec(entity, &encounter_damage_stats.buffs);
-
-                entity.spec = Some(spec.clone());
-
-                if let Some(info) = player_info
-                    .as_ref()
-                    .and_then(|stats| stats.get(&entity.name))
-                {
-                    for gem in info.gems.iter().flatten() {
-                        for skill_id in gem_skill_id_to_skill_ids(gem.skill_id) {
-                            if let Some(skill) = entity.skills.get_mut(&skill_id) {
-                                match gem.gem_type {
-                                    5 | 34 => {
-                                        // damage gem
-                                        skill.gem_damage =
-                                            Some(damage_gem_value_to_level(gem.value, gem.tier));
-                                        skill.gem_tier_dmg = Some(gem.tier);
-                                    }
-                                    27 | 35 => {
-                                        // cooldown gem
-                                        skill.gem_cooldown =
-                                            Some(cooldown_gem_value_to_level(gem.value, gem.tier));
-                                        skill.gem_tier = Some(gem.tier);
-                                    }
-                                    64 | 65 => {
-                                        // support identity gem??
-                                        skill.gem_damage =
-                                            Some(support_damage_gem_value_to_level(gem.value));
-                                        skill.gem_tier_dmg = Some(gem.tier);
-                                    }
-                                    _ => {}
-                                }
-                            }
-                        }
-                    }
-
-                    entity.ark_passive_active = Some(info.ark_passive_enabled);
-
-                    let engravings = get_engravings(&info.engravings);
-                    if entity.class_id == 104
-                        && engravings.as_ref().is_some_and(|engravings| {
-                            engravings
-                                .iter()
-                                .any(|e| e == "Awakening" || e == "Drops of Ether")
-                        })
-                    {
-                        entity.spec = Some("Princess".to_string());
-                    } else if spec == "Unknown" {
-                        // not reliable enough to be used on its own
-                        if let Some(tree) = info.ark_passive_data.as_ref() {
-                            if let Some(enlightenment) = tree.enlightenment.as_ref() {
-                                for node in enlightenment.iter() {
-                                    let spec = get_spec_from_ark_passive(node);
-                                    if spec != "Unknown" {
-                                        entity.spec = Some(spec);
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    entity.engraving_data = engravings;
-                    entity.ark_passive_data = info.ark_passive_data.clone();
-                }
-            }
-
-            entity.damage_stats.dps = entity.damage_stats.damage_dealt / duration_seconds;
-
-            for (_, skill) in entity.skills.iter_mut() {
-                skill.dps = skill.total_damage / duration_seconds;
-            }
-
-            for (_, cast_log) in cast_log.iter().filter(|&(s, _)| *s == entity.name) {
-                for (skill, log) in cast_log {
-                    entity.skills.entry(*skill).and_modify(|e| {
-                        e.cast_log.clone_from(log);
-                    });
-                }
-            }
-
-            for (_, skill_cast_log) in skill_cast_log.iter().filter(|&(s, _)| *s == entity.id) {
-                for (skill, log) in skill_cast_log {
-                    entity.skills.entry(*skill).and_modify(|e| {
-                        let average_cast = e.total_damage as f64 / e.casts as f64;
-                        let filter = average_cast * 0.05;
-                        let mut adj_hits = 0;
-                        let mut adj_crits = 0;
-                        for cast in log.values() {
-                            for hit in cast.hits.iter() {
-                                if hit.damage as f64 > filter {
-                                    adj_hits += 1;
-                                    if hit.crit {
-                                        adj_crits += 1;
-                                    }
-                                }
-                            }
-                        }
-
-                        if adj_hits > 0 {
-                            e.adjusted_crit = Some(adj_crits as f64 / adj_hits as f64);
-                        }
-
-                        e.max_damage_cast = log
-                            .values()
-                            .map(|cast| cast.hits.iter().map(|hit| hit.damage).sum::<i64>())
-                            .max()
-                            .unwrap_or_default();
-                        e.skill_cast_log = log.values().cloned().collect();
-                    });
-                }
-            }
-        }
 
         Ok(())
     }

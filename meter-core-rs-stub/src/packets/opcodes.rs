@@ -1,5 +1,6 @@
 #[repr(u8)]
 pub enum Pkt {
+    Void,
     CounterAttackNotify,
     DeathNotify,
     IdentityGaugeChangeNotify,

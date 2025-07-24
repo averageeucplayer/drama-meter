@@ -29,7 +29,6 @@ tauri-plugin-process = "2"
 bitflags = "2.4.1"
 window-vibrancy = "0.6.0"
 hashbrown = { version = "0.15.0", features = ["serde"] }
-rusqlite = { version = "0.36.0", features = ["bundled", "serde_json"] }
 tokio = { version = "1.45.1", features = ["rt", "macros"] }
 serde_with = "3.12.0"
 log = "0.4.18"
@@ -44,6 +43,11 @@ meter-core = { path="../meter-core-rs-stub", optional = true }
 tauri-plugin-shell = "2"
 thiserror = "2.0.12"
 strfmt = "0.2.4"
+r2d2 = "0.8.10"
+r2d2_sqlite = "0.31.0"
+rusqlite = { version = "0.37.0", features = ["bundled", "serde_json"] }
+rand = "0.9.0"
+bincode = "2.0.1"
 
 [features]
 default = ["meter-core"]

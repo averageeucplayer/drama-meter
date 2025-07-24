@@ -61,8 +61,10 @@ pub struct EntityDb {
 
 pub struct SaveToDb {
     pub duration: TimeDelta,
+    pub duration_seconds: i64,
     pub boss_only_damage: bool,
     pub current_boss_name: String,
+    pub boss_max_hp: i64,
     pub local_player: String,
     pub started_on: DateTime<Utc>,
     pub updated_on: DateTime<Utc>,
@@ -74,7 +76,7 @@ pub struct SaveToDb {
     pub boss_hp_log: HashMap<String, Vec<BossHpLog>>,
     pub raid_clear: bool,
     pub party_info: Vec<Vec<String>>,
-    pub raid_difficulty: String,
+    pub raid_difficulty: RaidDifficulty,
     pub region: Option<String>,
     pub player_info: Option<HashMap<String, PlayerStats>>,
     pub version: String,

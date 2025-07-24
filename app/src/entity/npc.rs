@@ -11,6 +11,7 @@ pub struct Npc {
 
 #[derive(Debug, Default)]
 pub struct Esther {
+    pub id: u64,
     pub npc_id: u32,
     pub name: String,
     pub damage_dealt: i64,
