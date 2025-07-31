@@ -37,7 +37,8 @@
 
 <!-- name -->
 <div class="flex items-center justify-center gap-1 truncate">
-  <img src={getClassIcon(state.entity.classId)} class="size-5" alt={state.entity.class} />
+  <!-- <img src={getClassIcon(state.entity.classId)} class="size-5" alt={state.entity.class} /> -->
+  <div class={`size-5 class_${state.entity.classId}`}></div>
   <p class="truncate">{state.name}</p>
 </div>
 <!-- stats -->

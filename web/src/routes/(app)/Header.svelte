@@ -90,6 +90,7 @@
       <div class="mx-4 mb-2 h-px bg-neutral-700"></div>
       <div class="grid gap-1 px-2">
         {@render route("Past Encounters", "/logs")}
+        {@render route("Search", "/search")}
         {@render route("Uploading", "/upload")}
         {@render route("Changelog", "/changelog")}
         {@render route("Settings", "/settings")}

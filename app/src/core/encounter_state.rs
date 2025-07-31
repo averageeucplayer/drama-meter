@@ -20,7 +20,7 @@ use crate::misc::data::*;
 use crate::database::SaveToDb;
 use crate::entity::npc::Boss;
 use crate::entity::player::{self, Player, PlayerStats};
-use crate::entity::{Entity, EntityVariant};
+use crate::entity::{self, Entity, EntityVariant};
 use crate::models::*;
 use crate::models::TripodIndex;
 use crate::models::TripodLevel;
@@ -55,6 +55,22 @@ pub struct Raid {
     pub parties: HashMap<u32, Party>,
 }
 
+impl Raid {
+    pub fn to_party_name_map(&self) -> HashMap<i32, Vec<String>> {
+        let mut map: HashMap<i32, Vec<String>> = HashMap::new();
+
+        for (party_id, party) in &self.parties {
+            let names: Vec<String> = party.members
+                .iter()
+                .map(|player| player.name.clone())
+                .collect();
+            map.insert(*party_id as i32, names);
+        }
+
+        map
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Party {
     pub id: u32,
@@ -80,7 +96,7 @@ pub struct EncounterState {
     damage_log: HashMap<u64, Vec<(i64, i64)>>,
     cast_log: HashMap<u64, HashMap<u32, Vec<i32>>>,
     boss_hp_log: HashMap<String, Vec<BossHpLog>>,
-    pub party_info: Vec<Vec<String>>,
+    party_info: HashMap<i32, Vec<String>>,
     pub raid_difficulty: RaidDifficulty,
     pub boss_only_damage: bool,
     pub region: Option<String>,
@@ -143,7 +159,7 @@ impl EncounterState {
             damage_log: HashMap::new(),
             boss_hp_log: HashMap::new(),
             cast_log: HashMap::new(),
-            party_info: Vec::new(),
+            party_info: HashMap::new(),
             raid_difficulty: RaidDifficulty::Unknown,
             boss_only_damage: false,
             region: None,
@@ -169,7 +185,7 @@ impl EncounterState {
         }
 
         let can_send = self.sent_on == DateTime::<Utc>::MIN_UTC
-            || self.sent_on - now > self.update_interval
+            || now - self.sent_on > self.update_interval
             || self.is_resetting
             || self.boss_dead_update;
 
@@ -183,7 +199,10 @@ impl EncounterState {
             .and_then(|pr| pr.as_boss()).map(|pr| {
             EncounterEntity {
                 id: pr.id,
-
+                name: pr.name.to_string(),
+                npc_id: pr.npc_id,
+                current_hp: pr.encounter_stats.current_hp,
+                max_hp: pr.encounter_stats.max_hp,
                 ..Default::default()
             }
         });
@@ -206,6 +225,7 @@ impl EncounterState {
                         damage_stats: DamageStats {
                             damage_absorbed: player.encounter_stats.damage_stats.absorbed,
                             damage_dealt: player.encounter_stats.damage_stats.dealt,
+                            damage_taken: player.encounter_stats.damage_taken,
                             ..Default::default()
                         },
                         ..Default::default()
@@ -235,6 +255,7 @@ impl EncounterState {
 
                     Some((esther.name.clone(), EncounterEntity {
                         id: *key,
+                        npc_id: esther.npc_id,
                         name: esther.name.clone(),
                         entity_type: EntityType::Esther,
                         damage_stats: DamageStats {
@@ -265,7 +286,7 @@ impl EncounterState {
                 cleared: false,
                 boss_only_damage: self.boss_only_damage,
                 sync: None,
-                region: self.region.clone()
+                region: self.region.clone(),
             },
         };
 
@@ -366,12 +387,7 @@ impl EncounterState {
                 None
             } else {
                 Some(
-                    self.party_info
-                        .clone()
-                        .into_iter()
-                        .enumerate()
-                        .map(|(index, party)| (index as i32, party))
-                        .collect(),
+                    self.party_info.clone()
                 )
             },
             region: self.region.clone(),
@@ -909,6 +925,7 @@ impl EncounterState {
         self.local.character_id = character_id;
 
         self.entities.clear();
+        info!("{entity}");
         self.entities.insert(id, entity);
 
         self.local_status_effect_registry.remove(&id);
@@ -1004,6 +1021,7 @@ impl EncounterState {
             self.current_boss.name = boss.name.clone();
         }
 
+        info!("{npc}");
         self.entities.insert(id, npc);
         self.local_status_effect_registry.remove(&id);
 
@@ -1260,6 +1278,10 @@ impl EncounterState {
             }
         }
 
+        if self.raid.parties.len() > 1 {
+            self.party_info = self.raid.to_party_name_map();
+        }
+
     }
 
     pub fn is_initial(&self) -> bool {
@@ -1500,7 +1522,9 @@ impl EncounterState {
     pub fn get_or_create_entity(&mut self, id: u64, recorded_on: DateTime<Utc>) -> &mut Entity {
         self.entities
             .entry(id)
-            .or_insert_with(|| Entity::unknown(id, recorded_on))
+            .or_insert_with(|| {
+                Entity::unknown(id, recorded_on)
+            })
     }
 
     // keep all player entities, reset all stats
@@ -1521,7 +1545,7 @@ impl EncounterState {
         self.damage_log = HashMap::new();
         self.cast_log = HashMap::new();
         self.boss_hp_log = HashMap::new();
-        self.party_info = Vec::new();
+        self.party_info = HashMap::new();
         self.ntp_fight_start = 0;
         self.rdps_valid = false;
 
@@ -1649,7 +1673,7 @@ impl EncounterState {
             ..
         } = damage_data;
 
-       match (source.deref_mut(), target.deref_mut()) {
+        match (source.deref_mut(), target.deref_mut()) {
             (EntityVariant::Player(player), crate::entity::EntityVariant::Boss(boss)) => {
                 self.on_damage_player_to_boss(damage_data, player, boss);
             },

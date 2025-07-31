@@ -265,7 +265,7 @@ pub fn handle(
         Pkt::RaidResult => {
             
             state.party_freeze = true;
-            state.party_info = state.get_party();
+            // state.party_info = state.get_party();
 
             app.emit_to(EventTarget::Any, "phase-transition", 0)?;
 
@@ -528,7 +528,7 @@ pub fn handle(
             match packet.signal {
                 57 | 59 | 61 | 63 | 74 | 76 => {
                     state.party_freeze = true;
-                    state.party_info = state.get_party();
+                    // state.party_info = state.get_party();
                     state.raid_clear = true;
 
                     app.emit_to(EventTarget::Any, "phase-transition", 2)?;
@@ -546,7 +546,7 @@ pub fn handle(
                 }
                 58 | 60 | 62 | 64 | 75 | 77 => {
                     state.party_freeze = true;
-                    state.party_info = state.get_party();
+                    // state.party_info = state.get_party();
                     state.raid_clear = false;
 
                     app.emit_to(EventTarget::Any, "phase-transition", 4)?;

@@ -65,7 +65,8 @@
   "bundle": {
     "resources": [
       "assets/data/*.json",
-      "assets/migration/*.sql"
+      "assets/migration/*.sql",
+      "assets/templates/*.json"
     ],
 
     "createUpdaterArtifacts": true,

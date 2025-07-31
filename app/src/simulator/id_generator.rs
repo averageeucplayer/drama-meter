@@ -1,8 +1,11 @@
+use std::str::FromStr;
+
 use hashbrown::HashSet;
-use rand::{rngs::ThreadRng, Rng};
+use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 
-use crate::simulator::utils::random_nickname;
+use crate::{models::Class, simulator::utils::random_nickname};
 
+#[derive(Debug)]
 pub struct IdGenerator {
     used_u64: HashSet<u64>,
     used_u32: HashSet<u32>,
@@ -15,6 +18,23 @@ impl IdGenerator {
             used_u64: HashSet::new(),
             used_u32: HashSet::new(),
             rng: rand::thread_rng(),
+        }
+    }
+
+    pub fn resolve_class(&mut self, class_id: &str) -> Class {
+        match class_id {
+            "<dps>" => {
+                let class = Class::DPS().iter().choose(&mut self.rng).unwrap();
+                *class
+            },
+            "<support>" => {
+                let class = Class::SUPPORT().iter().choose(&mut self.rng).unwrap();
+                *class
+            },
+            value => {
+                let class = Class::from_str(value).unwrap();
+                class
+            }
         }
     }
 

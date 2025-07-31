@@ -13,10 +13,11 @@ use crate::{constants::*, core::background_worker::{BackgroundWorker, Background
 pub fn setup_app(app: &mut App) -> std::result::Result<(), Box<dyn std::error::Error>> {
     system_tray::build(app)?;
 
-    // #[cfg(debug_assertions)]
-    // {
-    //     meter_window.open_devtools();
-    // }
+    #[cfg(debug_assertions)]
+    {
+        let window = app.get_webview_window("main").unwrap();
+        window.open_devtools();
+    }
 
     let app_handle = app.app_handle();
     let package_info = app.package_info();
@@ -34,8 +35,6 @@ pub fn setup_app(app: &mut App) -> std::result::Result<(), Box<dyn std::error::E
     app.manage(commands_manager.clone());
 
     let commands_manager_test = app.state::<Arc<CommandsManager>>();
-
-    info!("test");
 
     let settings_manager = SettingsManager::new(app_context.settings_path.clone())?;
     let settings = settings_manager.lock().unwrap().get()?.clone();
@@ -148,20 +147,19 @@ pub async fn on_launch(
     }
 
     info!("listening on port: {}", PORT);
-    let packet_sniffer;
+    let mut packet_sniffer: Box<dyn PacketSniffer>;
 
     #[cfg(feature = "meter-core")]
     {
         use crate::sniffer::WindivertSniffer;
-        packet_sniffer = WindivertSniffer::new();
+        packet_sniffer = Box::new(WindivertSniffer::new());
     }
 
     #[cfg(feature = "fake")]
     {
-        packet_sniffer = FakeSniffer::new();
+        use crate::sniffer::FakeSniffer;
+        packet_sniffer = Box::new(FakeSniffer::new());
     }
-
-    let packet_sniffer = Box::new(packet_sniffer) as Box<dyn PacketSniffer>;
 
     let args = BackgroundWorkerArgs {
         app: app_handle,
@@ -174,7 +172,7 @@ pub async fn on_launch(
     };
 
     let mut background_worker = BackgroundWorker::new();
-    background_worker.run();
+    background_worker.run(args);
 
     Ok(())
 }

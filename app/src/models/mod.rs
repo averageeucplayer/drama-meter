@@ -628,9 +628,10 @@ pub struct Esther {
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillData {
-    pub id: i32,
+    pub id: u32,
     pub name: Option<String>,
     #[serde(rename = "type", default)]
+    #[serde(deserialize_with = "int_or_string_as_string")]
     pub skill_type: String,
     pub desc: Option<String>,
     pub class_id: u32,
@@ -679,9 +680,15 @@ pub struct SkillBuffData {
     pub unique_group: u32,
     #[serde(rename(deserialize = "overlap"))]
     pub overlap_flag: i32,
-    pub passive_options: Vec<PassiveOption>,
+    pub per_level_data: HashMap<String, PerLevelData>,
     pub source_skills: Option<Vec<u32>>,
     pub set_name: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PerLevelData {
+    pub passive_options: Vec<PassiveOption>,
 }
 
 #[derive(Debug, Default, Deserialize, Clone)]
@@ -912,6 +919,7 @@ where
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OngoingEncounter {
     pub is_valid: bool,
     pub encounter: Encounter,

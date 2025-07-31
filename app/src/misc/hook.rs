@@ -1,3 +1,5 @@
+use std::thread;
+
 use log::error;
 
 pub fn setup_hook() {

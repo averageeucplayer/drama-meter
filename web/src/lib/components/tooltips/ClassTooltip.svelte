@@ -1,9 +1,6 @@
 <script lang="ts">
   import QuickTooltip from "$lib/components/QuickTooltip.svelte";
   import type { Entity } from "$lib/types";
-
-  import { getClassIcon } from "$lib/utils";
-
   const { entity: entity }: { entity: Entity } = $props();
 </script>
 
@@ -21,5 +18,7 @@
 {/snippet}
 
 <QuickTooltip {tooltip}>
-  <img class="table-cell size-5" src={getClassIcon(entity.classId)} alt={entity.class} />
+  <div class="">
+    <div role="img" class={`table-cell class_${entity.classId}`} aria-label={entity.class}></div>
+  </div>
 </QuickTooltip>

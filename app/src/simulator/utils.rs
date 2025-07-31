@@ -1,6 +1,6 @@
 use std::{fs, path::{Path, PathBuf}};
 
-use rand::{distr::{Alphanumeric, SampleString}, rngs::ThreadRng, seq::IteratorRandom};
+use rand::{distr::{Alphabetic, Alphanumeric, SampleString}, rngs::ThreadRng, seq::IteratorRandom};
 use anyhow::*;
 use crate::models::{HitFlag, HitOption};
 
@@ -18,10 +18,13 @@ pub fn parse_range(s: &str) -> Option<(f32, f32)> {
 }
 
 pub fn random_nickname(rng: &mut ThreadRng) -> String {
-    let mut string = Alphanumeric.sample_string(rng, 10);
+    let mut string = Alphabetic.sample_string(rng, 10);
 
     let char = string.get_mut(0..1).unwrap();
     char.make_ascii_uppercase();
+
+    let str = string.get_mut(1..).unwrap();
+    str.make_ascii_lowercase();
 
     string
 }
@@ -44,32 +47,3 @@ pub fn encode_modifier(hit_flag: HitFlag, hit_option: HitOption) -> i32 {
     value as i32
 }
 
-pub fn get_templates(templates_path: &Path) -> Vec<PathBuf> {
-    let template_files: Vec<_> = fs::read_dir(&templates_path)
-        .unwrap()
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            entry.path().is_file()
-                && entry
-                    .path()
-                    .extension()
-                    .map(|ext| ext == "json")
-                    .unwrap_or(false)
-        })
-        .map(|entry| entry.path())
-        .collect();
-
-    template_files
-}
-
-pub fn get_random_template(templates: &mut Vec<PathBuf>) -> Option<PathBuf> {
-
-    let mut rng = rand::rng();
-    let idx = (0..templates.len()).choose(&mut rng)?;
-    Some(templates.remove(idx))
-}
-
-pub fn move_to_processed(template_path: &Path, destination_path: &Path) -> Result<()> {
-    fs::rename(template_path, destination_path)?;
-    Ok(())
-}

@@ -39,6 +39,17 @@ export interface EncounterEvent {
   payload: Encounter;
 }
 
+export interface OngoingEncounter {
+  isValid: boolean;
+  encounter: Encounter;
+  partyInfo: PartyInfo;
+}
+export interface OngoingEncounterEvent {
+  event: string;
+  payload: OngoingEncounter;
+}
+
+
 export interface PartyEvent {
   event: string;
   payload?: PartyInfo;
@@ -361,13 +372,13 @@ export enum IncapacitationEventType {
 }
 
 export enum EntityType {
-  UNKNOWN = "UNKNOWN",
-  MONSTER = "MONSTER",
-  BOSS = "BOSS",
-  GUARDIAN = "GUARDIAN",
-  PLAYER = "PLAYER",
-  NPC = "NPC",
-  ESTHER = "ESTHER"
+  UNKNOWN = "Unkown",
+  MONSTER = "Monster",
+  BOSS = "Boss",
+  GUARDIAN = "Guardian",
+  PLAYER = "Player",
+  NPC = "Npc",
+  ESTHER = "Esther"
 }
 
 export interface ClassColors {

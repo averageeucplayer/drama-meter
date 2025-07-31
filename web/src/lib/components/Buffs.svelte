@@ -43,6 +43,7 @@
     {#each buffs.partyGroupedSynergies as [partyId, synergies], i (partyId)}
       {#if enc.parties[i] && enc.parties[i].length > 0}
         <table
+          data-table="buffs"
           class="isolate w-full table-fixed {enc.live &&
           settings.app.meter.pinSelfParty &&
           buffs.buffParties[i].some((player) => player.name === enc.localPlayer)

@@ -8,6 +8,6 @@ use std::{error::Error, sync::mpsc::{self, Receiver, Sender}};
 pub use fake::FakeSniffer;
 pub use windivert::WindivertSniffer;
 
-pub trait PacketSniffer {
-    fn start(&self, port: u16, region_file_path: String) -> Result<Receiver<(Pkt, Vec<u8>)>>;
+pub trait PacketSniffer : Send + Sync {
+    fn start(&mut self, port: u16, region_file_path: String) -> Result<Receiver<(Pkt, Vec<u8>)>>;
 }

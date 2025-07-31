@@ -12,7 +12,7 @@
   let { enc }: Props = $props();
 </script>
 
-<table class="relative isolate w-full table-fixed">
+<table data-table="damage-taken" class="relative isolate w-full table-fixed">
   <thead class="sticky top-0 z-40 h-6 {enc.live ? 'sticky top-0 backdrop-blur-lg' : ''}">
     <tr class="bg-neutral-900 tracking-tight">
       <th class="w-7 px-2 font-normal"></th>

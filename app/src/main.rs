@@ -20,6 +20,7 @@ use log::LevelFilter;
 
 use crate::constants::WINDOW_STATE_FLAGS;
 use crate::handlers::generate_handlers;
+use crate::misc::data::AssetsPreloader;
 use crate::misc::hook::setup_hook;
 
 #[tokio::main]
@@ -50,7 +51,9 @@ async fn main() -> Result<()> {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(log_builder.build())
+        .manage(AssetsPreloader::new())
         .setup(setup::setup_app)
         .on_window_event(misc::events::on_window_event)
         .plugin(

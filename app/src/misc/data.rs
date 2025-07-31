@@ -2,7 +2,9 @@ use std::fs::File;
 
 use hashbrown::{HashMap, HashSet};
 use once_cell::sync::Lazy;
+use serde::Deserialize;
 use strum::VariantArray;
+use tokio::task::{self, JoinHandle};
 
 use crate::models::*;
 
@@ -157,6 +159,20 @@ pub static IDENTITY_CATEGORY: Lazy<HashMap<String, i32>> = Lazy::new(|| {
     }
 });
 
+pub static GEM_SKILL_MAP: Lazy<HashMap<u32, Vec<u32>>> = Lazy::new(|| {
+    unsafe {
+        use serde::Deserialize;
+
+        let reader = File::open("assets/data/GemSkillGroup.json").unwrap_unchecked();
+        let data: HashMap<String, (String, String, Vec<u32>)> = serde_json::from_reader(reader).unwrap_unchecked();
+
+        data
+            .into_iter()
+            .filter_map(|(key, entry)| key.parse::<u32>().ok().map(|id| (id, entry.2)))
+            .collect()
+    }
+});
+
 pub static GUARDIAN_RAID_BOSSES: Lazy<Vec<&'static str>> = Lazy::new(|| {
     vec![
         "Drextalas",
@@ -171,6 +187,49 @@ pub static GUARDIAN_RAID_BOSSES: Lazy<Vec<&'static str>> = Lazy::new(|| {
     ]
 });
 
+pub struct AssetsPreloader(Option<JoinHandle<()>>);
+
+impl AssetsPreloader {
+    pub fn new() -> Self {
+        let mut data = Self(None);
+        data.load();
+
+        data
+    }
+
+    pub async fn wait_for_load(&mut self) {
+        if let Some(handle) = self.0.take() {
+            handle.await;
+        }
+    }
+
+    fn load(&mut self) {
+        let handle = task::spawn_blocking(|| {
+            let _ = COMBAT_EFFECT_DATA.iter().next();
+            let _ = ENGRAVING_DATA.iter().next();
+            let _ = ARK_PASSIVE_DATA.iter().next();
+            let _ = ARK_PASSIVE_ID_TO_SPEC.iter().next();
+            let _ = CARD_MAP.iter().next();
+            let _ = BOSS_HP_MAP.iter().next();
+            let _ = CLASS_NAMES.len();
+            let _ = CLASS_MAP.iter().next();
+            let _ = REVERSE_CLASS_MAP.iter().next();
+            let _ = ESTHER_DATA.len();
+            let _ = ESTHER_BY_NPC_ID.iter().next();
+            let _ = ENCOUNTER_MAP.iter().next();
+            let _ = RAID_MAP.iter().next();
+            let _ = VALID_ZONES.len();
+            let _ = STAT_TYPE_MAP.iter().next();
+            let _ = IDENTITY_CATEGORY.iter().next();
+            let _ = GEM_SKILL_MAP.iter().next();
+            let _ = GUARDIAN_RAID_BOSSES.len();
+            let _ = GEM_SKILL_MAP.len();
+        });
+
+        self.0 = Some(handle);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -180,22 +239,22 @@ mod tests {
         // assert!(NPC_DATA.iter().next().is_some());
         // assert!(SKILL_DATA.iter().next().is_some());
         // assert!(SKILL_EFFECT_DATA.iter().next().is_some());
-        // assert!(SKILL_BUFF_DATA.iter().next().is_some());
-        // assert!(COMBAT_EFFECT_DATA.iter().next().is_some());
-        // assert!(ENGRAVING_DATA.iter().next().is_some());
-        // assert!(ARK_PASSIVE_DATA.iter().next().is_some());
-        // assert!(ESTHER_BY_NPC_ID.iter().next().is_some());
-        // assert!(ESTHER_DATA.iter().next().is_some());
-        // assert!(RAID_MAP.iter().next().is_some());
-        // assert!(VALID_ZONES.iter().next().is_some());
-        // assert!(STAT_TYPE_MAP.iter().next().is_some());
-        // assert!(IDENTITY_CATEGORY.iter().next().is_some());
+        //assert!(SKILL_BUFF_DATA.iter().next().is_some());
+        //assert!(COMBAT_EFFECT_DATA.iter().next().is_some());
+        assert!(ENGRAVING_DATA.iter().next().is_some());
+        assert!(ARK_PASSIVE_DATA.iter().next().is_some());
+        assert!(ESTHER_BY_NPC_ID.iter().next().is_some());
+        assert!(ESTHER_DATA.iter().next().is_some());
+        assert!(RAID_MAP.iter().next().is_some());
+        assert!(VALID_ZONES.iter().next().is_some());
+        assert!(STAT_TYPE_MAP.iter().next().is_some());
+        assert!(IDENTITY_CATEGORY.iter().next().is_some());
 
-        assert!(CARD_MAP.iter().next().is_some());
+        // assert!(CARD_MAP.iter().next().is_some());
 
-        let entry = CARD_MAP.iter().next().unwrap();
+        // let entry = CARD_MAP.iter().next().unwrap();
 
-        println!("{entry:?}");
+        // println!("{entry:?}");
     }
 
 }

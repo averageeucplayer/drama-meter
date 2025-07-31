@@ -131,28 +131,33 @@ pub fn calculate_stats(
                 .and_then(|stats| stats.get(&entity.name))
             {
                 for gem in info.gems.iter().flatten() {
-                    for skill_id in gem_skill_id_to_skill_ids(gem.skill_id) {
+                    let skill_ids = if matches!(gem.gem_type, 34 | 35 | 65 | 63 | 61) {
+                        GEM_SKILL_MAP
+                            .get(&gem.skill_id)
+                            .cloned()
+                            .unwrap_or_default()
+                    } else {
+                        vec![gem.skill_id]
+                    };
+
+                    for skill_id in skill_ids {
                         if let Some(skill) = entity.skills.get_mut(&skill_id) {
                             match gem.gem_type {
-                                5 | 34 => {
-                                    // damage gem
-                                    skill.gem_damage =
-                                        Some(damage_gem_value_to_level(gem.value, gem.tier));
-                                    skill.gem_tier_dmg = Some(gem.tier);
-                                }
-                                27 | 35 => {
-                                    // cooldown gem
+                                27 | 35 => { // cooldown gems
                                     skill.gem_cooldown =
                                         Some(cooldown_gem_value_to_level(gem.value, gem.tier));
                                     skill.gem_tier = Some(gem.tier);
                                 }
-                                64 | 65 => {
-                                    // support identity gem??
+                                64 | 65 => { // support effect damage gems
                                     skill.gem_damage =
                                         Some(support_damage_gem_value_to_level(gem.value));
                                     skill.gem_tier_dmg = Some(gem.tier);
                                 }
-                                _ => {}
+                                _ => { // damage gems
+                                    skill.gem_damage =
+                                        Some(damage_gem_value_to_level(gem.value, gem.tier));
+                                    skill.gem_tier_dmg = Some(gem.tier);
+                                }
                             }
                         }
                     }
@@ -374,7 +379,15 @@ pub fn get_status_effect_buff_type_flags(buff: &SkillBuffData) -> u32 {
         buff_type |= StatusEffectBuffTypeFlags::RESOURCE;
     }
 
-    for option in buff.passive_options.iter() {
+    let passive_options = match buff
+        .per_level_data
+        .get("1")
+        .map(|data| &data.passive_options) {
+            Some(passive_option) => passive_option,
+            None => return buff_type.bits() ,
+    };
+
+    for option in passive_options.iter() {
         let key_stat_str = option.key_stat.as_str();
         let option_type = option.option_type.as_str();
         if option_type == "stat" {
@@ -825,41 +838,6 @@ pub fn support_damage_gem_value_to_level(value: u32) -> u8 {
     }
 }
 
-pub fn gem_skill_id_to_skill_ids(skill_id: u32) -> Vec<u32> {
-    match skill_id {
-        13000 | 13001 => vec![18011, 18030], // destroyer hypergravity skills
-        23000 => vec![
-            20311, 20310, 20070, 20071, 20080, 20081, 20170, 20181, 20280, 20281,
-        ], // summoner elemental damage
-        41000 => vec![25038, 25035, 25036, 25037, 25400, 25401, 25402], // db surge skill
-        42000 | 42001 => vec![
-            27800, 27030, 27810, 27820, 27830, 27840, 27850, 27860, 27940, 27960,
-        ], // sh transformation skills
-        51001 => vec![28159, 28160, 28161, 28162, 28170], // sharpshooter bird skill
-        53000 | 53001 => vec![30240, 30250, 30260, 30270, 30290], // arty barrage skills
-        54000 | 54001 => vec![
-            35720, 35750, 35760, 35761, 35770, 35771, 35780, 35781, 35790, 35800,
-        ], // machinist transformation skills
-        62000 => vec![32040, 32041],         // aeromancer sun shower
-        24000 => vec![
-            21140, 21141, 21142, 21143, 21130, 21131, 21132, 21133, // bard serenade skills
-            21147, // bard tempest
-        ],
-        47000 => vec![47950], // bk breaker identity
-        60000 => vec![
-            31050, 31051, 31110, 31120, 31121, 31130, 31131, 31140, 31141, // artist moonfall
-            31145, // artist rising moon
-        ],
-        19030 => vec![19290, 19030, 19300],  // arcana evokes
-        63000 | 63001 => vec![33200, 33201], // wildsoul swish bear
-        63002 | 63003 => vec![33230, 33231], // wildsoul boulder bear
-        63004 | 63005 => vec![33330, 33331], // wildsoul fox leap
-        63006 | 63007 => vec![33320, 33321], // wildsoul fox flame
-        63008 | 63009 => vec![33400, 33410], // wildsoul identity skills
-        _ => vec![skill_id],
-    }
-}
-
 pub fn get_engravings(engraving_ids: &Option<Vec<u32>>) -> Option<Vec<String>> {
     let ids = match engraving_ids {
         Some(engravings) => engravings,
@@ -1015,7 +993,11 @@ pub fn get_player_spec(player: &EncounterEntity, buffs: &HashMap<u32, StatusEffe
 
     match player.class.as_str() {
         "Berserker" => {
-            if player.skills.contains_key(&16140) {
+            if player.skills.contains_key(&16140)
+                || player.skills.contains_key(&16145)
+                || player.skills.contains_key(&16146)
+                || player.skills.contains_key(&16147)
+            {
                 "Berserker Technique"
             } else {
                 "Mayhem"

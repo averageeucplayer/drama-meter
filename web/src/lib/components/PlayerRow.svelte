@@ -42,7 +42,8 @@
 <td class="pl-1">
   {#if settings.app.general.showEsther && entity.entityType === EntityType.ESTHER}
     <QuickTooltip tooltip={entityState.name}>
-      <img class="table-cell size-5" src={getClassIcon($appContext.estherNameToIcon[entityState.name])} alt={entityState.name} />
+      <!-- <img class="table-cell size-5" src={getClassIcon($appContext.estherNameToIcon[entityState.name])} alt={entityState.name} /> -->
+      <div class={`table-cell size-5 class_102`}></div>
     </QuickTooltip>
   {:else}
     <ClassTooltip {entity} />

@@ -216,6 +216,36 @@ pub fn encode_new_npc(
     (Pkt::NewNpc, bytes)
 }
 
+pub fn encode_remove_object(object_id: u64) -> Packet {
+    let packet = PKTZoneObjectUnpublishNotify { object_id };
+    let bytes = encode_to_vec(packet, CONFIG).unwrap();
+    (Pkt::NewNpcSummon, bytes)
+}
+
+pub fn encode_new_npc_summon(
+    object_id: u64,
+    owner_id: u64,
+    type_id: u32,
+    level: u16,
+    balance_level: Option<u16>,
+    hp: i64
+) -> Packet {
+    let npc_struct = NpcStruct {
+        object_id,
+        type_id,
+        level,
+        balance_level: NpcStructBalance { value: balance_level },
+        stat_pairs: vec![
+            StatPair { stat_type: 1, value: hp as i64 },
+            StatPair { stat_type: 27, value: hp as i64 }
+        ],
+        status_effect_datas: vec![],
+    };
+    let packet = PKTNewNpcSummon { owner_id, npc_struct };
+    let bytes = encode_to_vec(packet, CONFIG).unwrap();
+    (Pkt::NewNpcSummon, bytes)
+}
+
 pub fn encode_party_status_effect_remove_notify(character_id: u64, reason: u8, id: u32) -> Packet {
     let packet = PKTPartyStatusEffectRemoveNotify {
         character_id,

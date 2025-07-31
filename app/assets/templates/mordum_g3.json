@@ -2,8 +2,48 @@
     "boss": {
         "id": 485800,
         "level": 1700,
-        "hp": 1.2e10
+        "hp": 1.2e10,
+        "summons": [
+            {
+                "id": 485802,
+                "hp": 1.2e8,
+                "appears_after_hp_bar": 160
+            },
+            {
+                "id": 485803,
+                "hp": 1.2e8,
+                "appears_after_hp_bar": 160
+            },
+            {
+                "id": 485805,
+                "hp": 1.2e8,
+                "appears_after_death": true
+            }
+        ]
     },
+    "sidereals": [
+        {
+            "id": 59062,
+            "damage": 1.2e8,
+            "appears_after": "00:03:00",
+            "expires_after": "00:00:30",
+            "skill_id": 533201
+        },
+        {
+            "id": 58803,
+            "damage": 1.2e8,
+            "appears_after": "00:06:00",
+            "expires_after": "00:00:30",
+            "skill_id": 58803
+        },
+        {
+            "id": 58803,
+            "damage": 1.2e8,
+            "appears_after": "00:09:00",
+            "expires_after": "00:00:30",
+            "skill_id": 58803
+        }
+    ],
     "raid": {
         "id": "<u32>",
         "parties": [

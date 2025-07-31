@@ -107,7 +107,7 @@
       {#if meterState === MeterState.PARTY}
         <DamageMeterPartySplit {enc} {inspectPlayer} />
       {:else if meterState === MeterState.PLAYER && player !== undefined}
-        <table class="relative isolate w-full table-fixed">
+        <table data-table="player-breakdown" class="relative isolate w-full table-fixed">
           <PlayerBreakdown entity={player} {enc} {handleRightClick} />
         </table>
       {/if}

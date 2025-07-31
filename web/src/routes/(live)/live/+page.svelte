@@ -3,7 +3,7 @@
   import { addToast } from "$lib/components/Toaster.svelte";
   import { EncounterState } from "$lib/encounter.svelte";
   import { misc, settings } from "$lib/stores.svelte";
-  import type { Encounter, EncounterEvent, PartyEvent } from "$lib/types";
+  import type { Encounter, EncounterEvent, OngoingEncounterEvent, PartyEvent } from "$lib/types";
   import { uploadLog } from "$lib/utils/sync";
   import {
     adminAlert,
@@ -37,17 +37,27 @@
     let events: Array<UnlistenFn> = [];
 
     (async () => {
-      let encounterUpdateEvent = await listen("encounter-update", (event: EncounterEvent) => {
-        // console.log(+Date.now(), event.payload);
-        if (!settings.app.general.mini) {
-          enc.encounter = event.payload;
-        }
+      let encounterUpdateEvent = await listen("encounter-update", (event: OngoingEncounterEvent) => {
+        
+        const {
+          encounter,
+          isValid,
+          partyInfo
+        } = event.payload
+          enc.encounter = encounter;
+          enc.partyInfo = partyInfo;
+          console.log(isValid, partyInfo, encounter)
+          misc.missingInfo = !isValid;
+
+        // if (!settings.app.general.mini) {
+          
+        // }
       });
-      let partyUpdateEvent = await listen("party-update", (event: PartyEvent) => {
-        if (event.payload) {
-          enc.partyInfo = event.payload;
-        }
-      });
+      // let partyUpdateEvent = await listen("party-update", (event: PartyEvent) => {
+      //   if (event.payload) {
+          
+      //   }
+      // });
       let invalidDamageEvent = await listen("invalid-damage", () => {
         misc.missingInfo = true;
       });
@@ -106,7 +116,7 @@
 
       events.push(
         encounterUpdateEvent,
-        partyUpdateEvent,
+        // partyUpdateEvent,
         invalidDamageEvent,
         zoneChangeEvent,
         raidStartEvent,

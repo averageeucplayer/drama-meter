@@ -47,7 +47,6 @@ impl Entity {
         let base = BaseEntity { id, owner_id, created_on };
 
         if let Some(esther) = ESTHER_BY_NPC_ID.get(&npc_id) {
-            // (EntityType::Esther, , "none".to_string());
             let entity = Esther {
                 npc_id,
                 name: esther.name.clone(),
@@ -258,7 +257,44 @@ impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let base = &self.0;
         match &self.1 {
-            _ => write!(f, "")
+            EntityVariant::Unknown => {
+                write!(f, "Unknown Entity(id={}, created_on={})", base.id, base.created_on)
+            }
+            EntityVariant::Projectile(proj) => {
+                write!(
+                    f,
+                    "Projectile(id={}, skill_id={}, skill_effect_id={}, attack_battle_item={}, created_on={})",
+                    base.id, proj.skill_id, proj.skill_effect_id, proj.is_attack_battle_item, base.created_on
+                )
+            }
+            EntityVariant::Player(player) => {
+                write!(
+                    f,
+                    "Player(id={}, name='{}', class_id={}, created_on={})",
+                    base.id, player.name, player.class_id, base.created_on
+                )
+            }
+            EntityVariant::Npc(npc) => {
+                write!(
+                    f,
+                    "Npc(id={}, name='{}', npc_id={}, level={}, created_on={})",
+                    base.id, npc.name, npc.npc_id, npc.level, base.created_on
+                )
+            }
+            EntityVariant::Boss(boss) => {
+                write!(
+                    f,
+                    "Boss(id={}, name='{}', npc_id={}, level={}, created_on={})",
+                    base.id, boss.name, boss.npc_id, boss.level, base.created_on
+                )
+            }
+            EntityVariant::Esther(esther) => {
+                write!(
+                    f,
+                    "Esther(id={}, name='{}', npc_id={}, created_on={})",
+                    base.id, esther.name, esther.npc_id, base.created_on
+                )
+            }
         }
     }
 }

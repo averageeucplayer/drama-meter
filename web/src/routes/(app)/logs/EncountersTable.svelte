@@ -81,7 +81,8 @@
       <div class="mask-r-from-80% mask-r-to-100% flex">
         {#each encounter.classes as classId, i}
           <QuickTooltip tooltip={encounter.names[i]} class="shrink-0">
-            <img src={getClassIcon(classId)} alt="class-{classId}" class="size-8" />
+            <!-- <img src={getClassIcon(classId)} alt="class-{classId}" class="size-8" /> -->
+             <div class={`size-8 class_${classId}`}></div>
           </QuickTooltip>
         {/each}
       </div>
